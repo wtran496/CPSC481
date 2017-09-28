@@ -168,24 +168,20 @@ int main(int argc, char **argv){
 
 	ros::Rate loop_rate(20);
 	ROS_INFO_STREAM("\n\n\n*****START MOVING *******\n");
-	speed = 0.2;
-	distance = 2;
-	isForward = true;
 
 
-//MAKE THE NUMBER 7
 	angular_speed = 2.0;
 	angle = 90.0;
 	clockwise = false;
+//MAKE THE NUMBER 7
 	rotate(degrees2radians(angular_speed), degrees2radians(angle),clockwise);
-	move(0.5,0.4,1, isForward);
+	move(0.5,0.4,1, true);
 	clockwise = true;
 	rotate(degrees2radians(angular_speed), degrees2radians(angle),clockwise);
-	move(0.2,0,distance, isForward);
+	move(0.2,0,2, true);
 	clockwise = false;
 	rotate(degrees2radians(angular_speed), degrees2radians(angle),clockwise);
-	isForward = false;
-	move(0.5,0.4,2, isForward);
+	move(0.5,0.4,2, false);
 	//ros::Rate loop_rate(0.5);
 	//loop_rate.sleep();
 	//setDesiredOrientation(degrees2radians(60));
