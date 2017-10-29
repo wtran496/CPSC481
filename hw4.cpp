@@ -27,6 +27,7 @@ int main(int argc, char **argv){
 
 	ros::NodeHandle n;
 	ros::Rate loop_rate(2);
+	//	Wait-for-message time-out duration
 	ros::Duration wait_duration = ros::Duration(2);
 
 	//  Defines the message objects
@@ -41,7 +42,7 @@ int main(int argc, char **argv){
 		string name = tname.str();
 
 		// Get info about src_turt
-		try {msg = *(ros::topic::waitForMessage<turtlesim::Pose>(name, ros::Duration(2)));}
+		try {msg = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
 		catch (int e) {ROS_INFO("COULDNT FIND THAT TURT");}
 		ROS_INFO("X: %f,  Y: %f", msg.x, msg.y);
 
@@ -54,7 +55,7 @@ int main(int argc, char **argv){
 			string name = jname.str();
 
 			// Get info about dest_turt
-			try{msg1 = *(ros::topic::waitForMessage<turtlesim::Pose>(name, ros::Duration(2)));}
+			try{msg1 = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
 			catch (int e){ROS_INFO("COULDNT FIND THAT TURT");}
 			ROS_INFO("X1: %f,  Y1: %f", msg1.x, msg1.y);
 
@@ -79,7 +80,7 @@ int main(int argc, char **argv){
 	tname.str("");
 	tname << "/T" << turtle1 << "/pose";
 	string name = tname.str();
-	try {msg = *(ros::topic::waitForMessage<turtlesim::Pose>(name, ros::Duration(2)));}
+	try {msg = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
 	catch (int e) {ROS_INFO("COULDNT FIND THAT TURT");}
 	name.clear();
 		
@@ -87,7 +88,7 @@ int main(int argc, char **argv){
 	jname.str("");
 	jname << "/T" << turtle2 << "/pose";		
 	name = jname.str();
-	try {msg1 = *(ros::topic::waitForMessage<turtlesim::Pose>(name, ros::Duration(2)));}
+	try {msg1 = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
 	catch (int e) {ROS_INFO("COULDNT FIND THAT TURT");}
 	name.clear();
 
