@@ -7,6 +7,9 @@
 #include <string>
 #include <sstream>
 
+const int MAX_TTURTLES = 7;
+const int MAX_XTURTLES = 10;
+
 using namespace::std;
 
 double getDistance(double x1, double y1, double x2, double y2){
@@ -17,81 +20,106 @@ int main(int argc, char **argv){
 
 	ros::init(argc,argv,"hw4");
 
-	int num_turts = 3;
 	int turtle1 = 1; // Store Tturtle1
 	int turtle2 = 1; // Store Tturtle2
-	double pair = 0; // To check the furthest pair
+	double max_distance = 0; // To check the furthest pair
 	double distance = 0; // To check pair distances
 	stringstream jname; 
 	stringstream tname;
 
 	ros::NodeHandle n;
 	ros::Rate loop_rate(2);
+
 	//	Wait-for-message time-out duration
 	ros::Duration wait_duration = ros::Duration(2);
 
 	//  Defines the message objects
 	turtlesim::Pose msg;	
 	turtlesim::Pose msg1;
+	turtlesim::Pose turtle_1;
+	turtlesim::Pose x_turts[MAX_XTURTLES];
+	turtlesim::Pose t_turts[MAX_TTURTLES];
 
-	for(int src_turt = 0; src_turt  < num_turts; src_turt ++ ){
+
+	/*
+
+		COLLECTING ALL TURTLE LOCATIONS
+
+	*/
+	// Get Turtle1 Information
+	string name = "/turtle1/pose";
+	try { turtle_1= *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
+	catch (int e) { ROS_INFO("COULDNT FIND THAT TURT"); }
+	cout<<"Turtle1: "<<turtle_1.x<<", "<<turtle_1.y<<endl;
+
+	//	Collect all the locations of the X-Turtles in x_turtle[]
+	for(int x_turt = 0; x_turt < MAX_XTURTLES; x_turt++){
 		tname.clear();
 		tname.str("");
-		tname << "/T" << src_turt+1 << "/pose";
-		cout<<"Outer loop"<<tname.str()<<endl;	// Added this for personal visualization purposes-- Delete if you want
-		string name = tname.str();
+		tname << "/X" << x_turt+1 << "/pose";
+		name = tname.str();
 
-		// Get info about src_turt
-		try {msg = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
-		catch (int e) {ROS_INFO("COULDNT FIND THAT TURT");}
-		ROS_INFO("X: %f,  Y: %f", msg.x, msg.y);
+		try { x_turts[x_turt]= *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
+		catch (int e) { ROS_INFO("COULDNT FIND THAT TURT"); }
+	}
+	//	Print all the locations of the X-Turtles to the screen
+	for(int i = 0; i<MAX_XTURTLES; i++){
+		cout<<"X"<<i+1<<": "<<x_turts[i].x<<", "<<x_turts[i].y<<endl;
+	}
+
+	//	Collect all the locations of the T-Turtles in t_turtle[]
+	for(int t_turt = 0; t_turt < MAX_TTURTLES; t_turt++){
+		tname.clear();
+		tname.str("");
+		tname << "/T" << t_turt+1 << "/pose";
+		name = tname.str();
+
+		try { t_turts[t_turt]= *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
+		catch (int e) { ROS_INFO("COULDNT FIND THAT TURT"); }
+	}
+	//	Print all the locations of the T-Turtles to the screen
+	for(int i = 0; i<MAX_TTURTLES; i++){
+		cout<<"T"<<i+1<<": "<<t_turts[i].x<<", "<<t_turts[i].y<<endl;
+	}
+
+
+
+	/*
+
+			GETTING FURTHEST PAIR OF T-TURTLES
+
+	*/
+	for(int src_turt = 0; src_turt  < MAX_TTURTLES; src_turt ++ ){
+		cout<<"Outer loop:  Turtle--"<<src_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
+		float src_x = t_turts[src_turt].x;
+		float src_y = t_turts[src_turt].y;
 
 		// src_turt+1 to compare each turtle
-		for (int dest_turt = src_turt+1; dest_turt < num_turts; dest_turt++){
-			jname.clear();
-			jname.str("");
-			jname << "/T" << dest_turt+1 << "/pose";
-			cout<<"Inner loop"<<jname.str()<<endl; // Added this for personal visualization purposes-- Delete if you want
-			string name = jname.str();
-
-			// Get info about dest_turt
-			try{msg1 = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
-			catch (int e){ROS_INFO("COULDNT FIND THAT TURT");}
-			ROS_INFO("X1: %f,  Y1: %f", msg1.x, msg1.y);
+		for (int dest_turt = src_turt+1; dest_turt < MAX_TTURTLES; dest_turt++){
+			cout<<"Inner loop:  Turtle--"<<dest_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
+			float dest_x = t_turts[dest_turt].x;
+			float dest_y = t_turts[dest_turt].y;
 
 			// Get the distance
-			double distance = getDistance(msg.x,msg.y,msg1.x,msg1.y);
+			double distance = getDistance(src_x, src_y, dest_x, dest_y);
 
 			// Check the distance
 			ROS_INFO("Distance: %f",distance);
 			// Set if this distance is greater
-			if (distance > pair){
+			if (distance > max_distance){
 				//Check the pair
-				ROS_INFO("PAIR AND DISTANCE: %f , %f",pair,distance);
-				turtle1 = src_turt+1;
-				turtle2 = dest_turt+1;
-				pair = distance;
+				ROS_INFO("PAIR AND DISTANCE: %f , %f", max_distance, distance);
+				turtle1 = src_turt;
+				turtle2 = dest_turt;
+				max_distance = distance;
 			}
 		}
 	}
 
 	//This whole section display the pairs
-	tname.clear();
-	tname.str("");
-	tname << "/T" << turtle1 << "/pose";
-	string name = tname.str();
-	try {msg = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
-	catch (int e) {ROS_INFO("COULDNT FIND THAT TURT");}
-	name.clear();
-		
-	jname.clear();
-	jname.str("");
-	jname << "/T" << turtle2 << "/pose";		
-	name = jname.str();
-	try {msg1 = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));}
-	catch (int e) {ROS_INFO("COULDNT FIND THAT TURT");}
-	name.clear();
-
-	cout << "The furthest pairs are " << turtle1 << " at " << msg.x << "," << msg.y << " and " << turtle2 << " at " << msg1.x << "," << msg1.y<<endl;
+	cout << "The furthest pairs are " << turtle1+1 << " at " 
+	<< t_turts[turtle1].x << "," << t_turts[turtle1].y 
+	<< " and " 
+	<< turtle2+1 << " at " << t_turts[turtle2].x << "," << t_turts[turtle2].y<<endl;
    return 0;
 }
