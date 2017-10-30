@@ -1,25 +1,95 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "turtlesim/Pose.h"
+#include <sstream>
 #include <turtlesim/Spawn.h>
 #include <turtlesim/Kill.h>
-#include <sstream>
 #include <string>
 #include <sstream>
 
+using namespace::std;
+ros::Publisher velocity_publisher;
+ros::Subscriber pose_subscriber;
+turtlesim::Pose turtlesim_pose;
+const double PI = 3.14159265359;
 const int MAX_TTURTLES = 7;
 const int MAX_XTURTLES = 10;
 
-using namespace::std;
-
+void poseCallback(const turtlesim::Pose::ConstPtr &pose_message){
+	turtlesim_pose.x = pose_message -> x;
+	turtlesim_pose.y = pose_message -> y;
+	turtlesim_pose.theta = pose_message -> theta;
+}
+double degrees2radians(double angle_in_degrees){
+	return angle_in_degrees * PI / 180.0;
+}
 double getDistance(double x1, double y1, double x2, double y2){
-	return sqrt(pow((x1-x2),2) + pow((y1-y2),2));
+return sqrt(pow((x1-x2),2) + pow((y1-y2),2));
 }
 
+//		turtle1			turtle2
+void moveGoal (double x, double y, double x1, double y1) {
+	geometry_msgs::Twist vel_msg;
+	ros::Rate loop_rate(100);
+	double E = 0.0;
+//t checks the movement our turtle goes from either turtle1 or turtle2
+	double t1 = x;
+	double t2 = y;
+	do {
+	/****** Proportional Controller ******/
+	//linear velocity in the x-axis
+	double Kv = 1.5;
+	//double Ki = 0.02;
+	//double v0 = 2.0;
+	//double alpha = 0.5;
+
+	//getDistance calculates Euclidean distance
+	double e = getDistance(turtlesim_pose.x, turtlesim_pose.y, t1, t2);
+	
+	//double E = E + e;
+	//Kv = v0 * (exp(-alpha)*error*error)/(error*error); //try something else
+	vel_msg.linear.x = (Kv*e);
+	vel_msg.linear.y = 0;
+	vel_msg.linear.z = 0;
+	//angular velocity in the z-axis
+	vel_msg.angular.x = 0;
+	vel_msg.angular.y = 0;
+
+	
+	//Kw value must be adjusted carefully a little by little, trying theta* = theta
+	//Large Kw value may cause strange behavior due to too big change of the turtle’s orientation.
+	double Kw = 1.1;
+
+	//**********need to figure out the angle for this to go around Xturtles
+	vel_msg.angular.z = Kw*(atan2(t2 - turtlesim_pose.y, t1 - turtlesim_pose.x)
+	- turtlesim_pose.theta); // Kw(θ * - θ)
+	//angular.z is the relative angle to rotate calculated by (absolute_angle – turtle’s orientation)
+
+	//****to prevent offbounds (0,0) (11,11)
+	if (vel_msg.linear.y > 0 || vel_msg.linear.x > 0 || vel_msg.linear.y < 11 || vel_msg.linear.x < 11)
+		velocity_publisher.publish(vel_msg);
+	//***CURRENTLY TRYING TO THINK OF CONDITIONS TO MAKE OUR TURTLE WALK AROUND XTURTLES
+
+	//******go to turtle2 when our turtle is at turtle1
+	if (getDistance(turtlesim_pose.x, turtlesim_pose.y, x, y) >= 0.5){
+		t1 = x1;
+		t2 = y1;
+	}
+	ros::spinOnce();
+	loop_rate.sleep();
+	
+	//******finish when our turtle is at turtle2
+	} while(getDistance(turtlesim_pose.x, turtlesim_pose.y, x1, y1) >= 0.5); // NEED THIS || or turtle is dead
+	std::cout<<"end move goal"<<std::endl;
+
+	vel_msg.linear.x = 0;
+	vel_msg.angular.z = 0;
+	velocity_publisher.publish(vel_msg);
+}
 int main(int argc, char **argv){
 
 	ros::init(argc,argv,"hw4");
-
+	ros::NodeHandle n;
 	int turtle1 = 1; // Store Tturtle1
 	int turtle2 = 1; // Store Tturtle2
 	double max_distance = 0; // To check the furthest pair
@@ -27,7 +97,9 @@ int main(int argc, char **argv){
 	stringstream jname; 
 	stringstream tname;
 
-	ros::NodeHandle n;
+	velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel",1000);
+	pose_subscriber = n.subscribe("/turtle1/pose",10,poseCallback);
+
 	ros::Rate loop_rate(2);
 
 	//	Wait-for-message time-out duration
@@ -42,9 +114,7 @@ int main(int argc, char **argv){
 
 
 	/*
-
 		COLLECTING ALL TURTLE LOCATIONS
-
 	*/
 	// Get Turtle1 Information
 	string name = "/turtle1/pose";
@@ -85,9 +155,7 @@ int main(int argc, char **argv){
 
 
 	/*
-
 			GETTING FURTHEST PAIR OF T-TURTLES
-
 	*/
 	for(int src_turt = 0; src_turt  < MAX_TTURTLES; src_turt ++ ){
 		cout<<"Outer loop:  Turtle--"<<src_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
@@ -117,9 +185,10 @@ int main(int argc, char **argv){
 	}
 
 	//This whole section display the pairs
-	cout << "The furthest pairs are " << turtle1+1 << " at " 
-	<< t_turts[turtle1].x << "," << t_turts[turtle1].y 
-	<< " and " 
-	<< turtle2+1 << " at " << t_turts[turtle2].x << "," << t_turts[turtle2].y<<endl;
+	ROS_INFO("The furthest pairs are %d at %f , %f and %d at %f , %f",(turtle1+1),t_turts[turtle1].x, t_turts[turtle1].y 
+	,(turtle2+1), t_turts[turtle2].x, t_turts[turtle2].y);
+
+	moveGoal(t_turts[turtle1].x, t_turts[turtle1].y, t_turts[turtle2].x, t_turts[turtle2].y);
+
    return 0;
 }
