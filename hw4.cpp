@@ -8,6 +8,7 @@
 #include <sstream>
 
 using namespace::std;
+
 ros::Publisher velocity_publisher;
 ros::Subscriber pose_subscriber;
 turtlesim::Pose turtlesim_pose;
@@ -24,61 +25,62 @@ double degrees2radians(double angle_in_degrees){
 	return angle_in_degrees * PI / 180.0;
 }
 double getDistance(double x1, double y1, double x2, double y2){
-return sqrt(pow((x1-x2),2) + pow((y1-y2),2));
+	return sqrt(pow((x1-x2),2) + pow((y1-y2),2));
 }
 
 //		turtle1			turtle2
 void moveGoal (double x, double y, double x1, double y1) {
 	geometry_msgs::Twist vel_msg;
 	ros::Rate loop_rate(100);
-	double E = 0.0;
-//t checks the movement our turtle goes from either turtle1 or turtle2
+	//t checks the movement our turtle goes from either turtle1 or turtle2
 	double t1 = x;
 	double t2 = y;
+	double E = 0.0;
+
 	do {
-	/****** Proportional Controller ******/
-	//linear velocity in the x-axis
-	double Kv = 1.5;
-	//double Ki = 0.02;
-	//double v0 = 2.0;
-	//double alpha = 0.5;
+		/****** Proportional Controller ******/
+		//linear velocity in the x-axis
+		double Kv = 1.5;
+		//double Ki = 0.02;
+		//double v0 = 2.0;
+		//double alpha = 0.5;
 
-	//getDistance calculates Euclidean distance
-	double e = getDistance(turtlesim_pose.x, turtlesim_pose.y, t1, t2);
-	
-	//double E = E + e;
-	//Kv = v0 * (exp(-alpha)*error*error)/(error*error); //try something else
-	vel_msg.linear.x = (Kv*e);
-	vel_msg.linear.y = 0;
-	vel_msg.linear.z = 0;
-	//angular velocity in the z-axis
-	vel_msg.angular.x = 0;
-	vel_msg.angular.y = 0;
+		//getDistance calculates Euclidean distance
+		double e = getDistance(turtlesim_pose.x, turtlesim_pose.y, t1, t2);
+		
+		//double E = E + e;
+		//Kv = v0 * (exp(-alpha)*error*error)/(error*error); //try something else
+		vel_msg.linear.x = (Kv*e);
+		vel_msg.linear.y = 0;
+		vel_msg.linear.z = 0;
+		//angular velocity in the z-axis
+		vel_msg.angular.x = 0;
+		vel_msg.angular.y = 0;
 
-	
-	//Kw value must be adjusted carefully a little by little, trying theta* = theta
-	//Large Kw value may cause strange behavior due to too big change of the turtle’s orientation.
-	double Kw = 1.1;
+		
+		//Kw value must be adjusted carefully a little by little, trying theta* = theta
+		//Large Kw value may cause strange behavior due to too big change of the turtle’s orientation.
+		double Kw = 1.1;
 
-	//**********need to figure out the angle for this to go around Xturtles
-	vel_msg.angular.z = Kw*(atan2(t2 - turtlesim_pose.y, t1 - turtlesim_pose.x)
-	- turtlesim_pose.theta); // Kw(θ * - θ)
-	//angular.z is the relative angle to rotate calculated by (absolute_angle – turtle’s orientation)
+		//**********need to figure out the angle for this to go around Xturtles
+		vel_msg.angular.z = Kw*(atan2(t2 - turtlesim_pose.y, t1 - turtlesim_pose.x)
+		- turtlesim_pose.theta); // Kw(θ * - θ)
+		//angular.z is the relative angle to rotate calculated by (absolute_angle – turtle’s orientation)
 
-	//****to prevent offbounds (0,0) (11,11)
-	if (vel_msg.linear.y > 0 || vel_msg.linear.x > 0 || vel_msg.linear.y < 11 || vel_msg.linear.x < 11)
-		velocity_publisher.publish(vel_msg);
-	//***CURRENTLY TRYING TO THINK OF CONDITIONS TO MAKE OUR TURTLE WALK AROUND XTURTLES
+		//****to prevent offbounds (0,0) (11,11)
+		if (vel_msg.linear.y > 0 || vel_msg.linear.x > 0 || vel_msg.linear.y < 11 || vel_msg.linear.x < 11)
+			velocity_publisher.publish(vel_msg);
+		//***CURRENTLY TRYING TO THINK OF CONDITIONS TO MAKE OUR TURTLE WALK AROUND XTURTLES
 
-	//******go to turtle2 when our turtle is at turtle1
-	if (getDistance(turtlesim_pose.x, turtlesim_pose.y, x, y) >= 0.5){
-		t1 = x1;
-		t2 = y1;
-	}
-	ros::spinOnce();
-	loop_rate.sleep();
-	
-	//******finish when our turtle is at turtle2
+		//******go to turtle2 when our turtle is at turtle1
+		if (getDistance(turtlesim_pose.x, turtlesim_pose.y, x, y) >= 0.5){
+			t1 = x1;
+			t2 = y1;
+		}
+		
+		ros::spinOnce();
+		loop_rate.sleep();
+		//******finish when our turtle is at turtle2
 	} while(getDistance(turtlesim_pose.x, turtlesim_pose.y, x1, y1) >= 0.5); // NEED THIS || or turtle is dead
 	std::cout<<"end move goal"<<std::endl;
 
@@ -86,6 +88,9 @@ void moveGoal (double x, double y, double x1, double y1) {
 	vel_msg.angular.z = 0;
 	velocity_publisher.publish(vel_msg);
 }
+
+
+
 int main(int argc, char **argv){
 
 	ros::init(argc,argv,"hw4");

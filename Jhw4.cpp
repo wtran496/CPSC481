@@ -60,16 +60,22 @@ void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n){
 	ros::Rate loop_rate(100);
 
 	// Was just testing sending things --probably change this to no longer be a for loop
-	for(int i = 0; i < 100; i++){
+	vel_msg.linear.y = 0;
+	vel_msg.linear.z = 0;
+	vel_msg.angular.x = 0;
+	vel_msg.angular.y = 0;
 
-		vel_msg.linear.x = 1.5 * distance_t1;
-		vel_msg.linear.y = 0;
-		vel_msg.linear.z = 0;
+	//getDistance calculates Euclidean distance
+	// Tuner variables
+	float k_linear = 1;
+	float k_angular = 4;
+	double dist;
 
-		vel_msg.angular.x = 0;
-		vel_msg.angular.y = 0;
-		vel_msg.angular.z = 1.1*(atan2(t1.y - turtle1_s.y, t1.x - turtle1_s.x)
-			- turtle1_s.theta); // Kw(θ * - θ)
+	while(getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y) > 1){
+		dist = getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y);
+		vel_msg.linear.x = dist * k_linear;
+		vel_msg.angular.z = k_angular * (atan2(t1.y - turtle1_s.y, t1.x - turtle1_s.x)
+		- turtle1_s.theta);
 
 		velocity_publisher.publish(vel_msg);
 		ros::spinOnce();
@@ -191,6 +197,7 @@ int main(int argc, char **argv){
 	turtlesim::Pose goal_turts[2];
 	goal_turts[0] = t_turts[turtle1];
 	goal_turts[1] = t_turts[turtle2];
+	navigate(t_turts, n);
    return 0;
 }
 
