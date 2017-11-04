@@ -5,7 +5,6 @@
 #include <turtlesim/Kill.h>
 #include <sstream>
 #include <string>
-#include <sstream>
 #include <boost/algorithm/string.hpp>
 
 const int MAX_TTURTLES = 7;
@@ -44,7 +43,6 @@ bool turtleExist(const string turtlename) {
   };
   return false;
 }
-
 
 void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n){
 
@@ -100,9 +98,9 @@ int main(int argc, char **argv){
 
 	turtlesim::Pose turtle_1;
 	/*
-		COLLECTING ALL TURTLE LOCATIONS
+		COLLECTING A LIST OF AVAILABLE TURTLES
 	*/
-	for( int i = 0; i < MAX_TTURTLES; i++){
+	for( int i = 1; i < MAX_TTURTLES + 1; i++){
 		stringstream name;
 		name << "T" << i;
 		cout<<"Checking "<<name.str()<<endl;
@@ -113,7 +111,7 @@ int main(int argc, char **argv){
 		}
 	}
 
-	for( int i = 0; i < MAX_TTURTLES; i++){
+	for( int i = 1; i < MAX_TTURTLES + 1; i++){
 		stringstream name;
 		name << "X" << i;
 		cout<<"Checking "<<name.str()<<endl;
@@ -124,21 +122,47 @@ int main(int argc, char **argv){
 		}
 	}
 
+	/*
+		COLLECTING ALL TURTLE LOCATIONS
+	*/
+	// Two arrays to store locations of Xs and Ts
 	turtlesim::Pose x_turts[xCount];
 	turtlesim::Pose t_turts[tCount];
+	turtlesim::Pose turtle_position;
+	ros::Duration wait_duration = ros::Duration(2);
+	stringstream tname;
+	string name;
+
+	for( int i = 0; i < tCount; i++){
+		tname.clear();
+		tname.str("");
+		tname << "/T" << i+1 << "/pose";
+		name = tname.str();
+		// We can use waitForMessage because we previously identified which turtles exist
+		t_turts[i] = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));
+	}
+	for( int i = 0; i < xCount; i++){
+		tname.clear();
+		tname.str("");
+		tname << "/X" << i+1 << "/pose";
+		name = tname.str();
+		// We can use waitForMessage because we previously identified which turtles exist
+		x_turts[i] = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));
+	}
+
 
 
 	/*
 			GETTING FURTHEST PAIR OF T-TURTLES
 	*/
-	for(int src_turt = 0; src_turt  < MAX_TTURTLES; src_turt ++ ){
-		cout<<"Outer loop:  Turtle--"<<src_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
+	for(int src_turt = 0; src_turt  < tCount; src_turt ++ ){
+		cout<<"\nOuter loop:  Turtle--"<<src_turt+1<<endl<<endl;	// Added this for personal visualization purposes-- Delete if you want
 		float src_x = t_turts[src_turt].x;
 		float src_y = t_turts[src_turt].y;
 
 		// src_turt+1 to compare each turtle
-		for (int dest_turt = src_turt+1; dest_turt < MAX_TTURTLES; dest_turt++){
-			cout<<"Inner loop:  Turtle--"<<dest_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
+		for (int dest_turt = src_turt+1; dest_turt < tCount; dest_turt++){
+			cout<<"\tInner loop:  Turtle--"<<dest_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
 			float dest_x = t_turts[dest_turt].x;
 			float dest_y = t_turts[dest_turt].y;
 
