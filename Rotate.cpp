@@ -103,18 +103,22 @@ bool turtleExist(const string turtlename) {
   return false;
 }
 
-void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n,turtlesim::Pose x_turts[],int xCount){
+void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n,turtlesim::Pose x_turts[],int xCount,double pairs[]){
 
 	velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel",1000);
-
 	double distance_t1, distance_t2;
+	double time1 = ros::Time::now().toSec();
+	double time2 = ros::Time::now().toSec();
+	double time = 0;
 	geometry_msgs::Twist vel_msg;
 	turtlesim::Pose t1, t2;
 	t1 = t_turts[0];
 	t2 = t_turts[1];
-
 	distance_t1 = getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y);
 	distance_t2 = getDistance(turtle1_s.x, turtle1_s.y, t2.x, t2.y);
+
+	//display euclidean distance between the t turtles
+	double euclidDistance = getDistance(t1.x,t1.y,t2.x,t2.y);
 	cout<< "D1: "<< distance_t1 <<"\tD2: "<< distance_t2 << endl;
 	ros::Rate loop_rate(100);
 
@@ -129,9 +133,14 @@ void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n,turtlesim::Pose x_tur
 	float k_linear = 1;
 	float k_angular = 4;
 	double dist = getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y);
-
 	while(dist >= 0.5){
 		dist = getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y);
+
+		//getting the time
+		time2 = ros::Time::now().toSec();
+		time = time2 - time1;
+		ROS_INFO("Time: %f",time);
+
 		ROS_INFO("Distance is now %f",dist);
 		vel_msg.linear.x = dist * k_linear;
 		vel_msg.angular.z = k_angular * (atan2(t1.y - turtle1_s.y, t1.x - turtle1_s.x)
@@ -152,6 +161,12 @@ void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n,turtlesim::Pose x_tur
 	dist = getDistance(turtle1_s.x, turtle1_s.y, t2.x, t2.y);
 	while(dist >= 0.5){
 		dist = getDistance(turtle1_s.x, turtle1_s.y, t2.x, t2.y);
+	
+		//getting the time
+		time2 = ros::Time::now().toSec();
+		time = time2 - time1;
+		ROS_INFO("Time: %f",time);
+
 		ROS_INFO("Distance2 is now %f",dist);
 		vel_msg.linear.x = dist * k_linear;
 		vel_msg.angular.z = k_angular * (atan2(t2.y - turtle1_s.y, t2.x - turtle1_s.x)
@@ -167,6 +182,12 @@ void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n,turtlesim::Pose x_tur
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
+	ROS_INFO("Time: %f",time);
+//find the total distance
+	double totalDistance = vel_msg.linear.x * time;
+
+//display list
+	ROS_INFO("T Turtles pair: %f and %f\n Euclidean Distance between T turtles: %f\n Velocity: %f\n Total Time: %f\n Total Distance: %f\n",pairs[0],pairs[1],euclidDistance,vel_msg.linear.x,time,totalDistance);
 }
 
 
@@ -237,7 +258,7 @@ int main(int argc, char **argv){
 		x_turts[i] = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));
 	}
 
-
+	double pairing[2];
 
 	/*
 			GETTING FURTHEST PAIR OF T-TURTLES
@@ -263,6 +284,8 @@ int main(int argc, char **argv){
 				//Check the pair
 				ROS_INFO("PAIR AND DISTANCE: %f , %f", max_distance, distance);
 				turtle1 = src_turt;
+				pairing[0] = src_turt;
+				pairing[1] = dest_turt;
 				turtle2 = dest_turt;
 				max_distance = distance;
 			}
@@ -278,6 +301,7 @@ int main(int argc, char **argv){
 	turtlesim::Pose goal_turts[2];
 	goal_turts[0] = t_turts[turtle1];
 	goal_turts[1] = t_turts[turtle2];
-	navigate(t_turts, n, x_turts, xCount);
+//						pairing is to get the turtle number pair
+	navigate(t_turts, n, x_turts, xCount,pairing);
    return 0;
 }
