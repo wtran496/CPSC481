@@ -7,11 +7,16 @@
 #include <string>
 #include <boost/algorithm/string.hpp>
 
+using namespace::std;
+
+struct Turtle {
+	string name;
+	turtlesim::Pose pose;
+};
 const int MAX_TTURTLES = 7;
 const int MAX_XTURTLES = 10;
 turtlesim::Pose turtle1_s;
-
-using namespace::std;
+static ros::ServiceClient kClient;
 
 double getDistance(double x1, double y1, double x2, double y2){
 	return sqrt(pow((x1-x2),2) + pow((y1-y2),2));
@@ -32,7 +37,7 @@ bool turtleExist(const string turtlename) {
   string tname;
   ros::master::V_TopicInfo alltopics;
 
-  //get all topic names 
+  //get all topic names
   ros::master::getTopics(alltopics);
 
   for (int i=0; i<alltopics.size(); i++) {
@@ -44,44 +49,75 @@ bool turtleExist(const string turtlename) {
   return false;
 }
 
-void navigate(turtlesim::Pose t_turts[], ros::NodeHandle n){
+void move_to(turtlesim::Pose dest, string t_name, ros::NodeHandle n){
 
+	// Tuner variables
+	float k_linear = 1;
+	float k_angular = 7;
+	double dist;
+	// To handle kill client/service requests
+	turtlesim::Kill::Request reqk;
+	turtlesim::Kill::Response respk;
+	kClient = n.serviceClient<turtlesim::Kill>("kill");
+	reqk.name = t_name;
+
+	// ROS variable set up
 	ros::Publisher velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel",1000);
-
-	double distance_t1, distance_t2;
 	geometry_msgs::Twist vel_msg;
-	turtlesim::Pose t1, t2;
-	t1 = t_turts[0];
-	t2 = t_turts[1];
-
-	distance_t1 = getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y);
-	distance_t2 = getDistance(turtle1_s.x, turtle1_s.y, t2.x, t2.y);
-	cout<< "D1: "<< distance_t1 <<"\tD2: "<< distance_t2 << endl;
-	ros::Rate loop_rate(100);
-
-	// Was just testing sending things --probably change this to no longer be a for loop
+	ros::Rate loop_rate(50);
 	vel_msg.linear.y = 0;
 	vel_msg.linear.z = 0;
 	vel_msg.angular.x = 0;
 	vel_msg.angular.y = 0;
 
-	//getDistance calculates Euclidean distance
-	// Tuner variables
-	float k_linear = 1;
-	float k_angular = 4;
-	double dist;
-
-	while(getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y) > 1){
-		dist = getDistance(turtle1_s.x, turtle1_s.y, t1.x, t1.y);
+	// Navigate to destination
+	while(getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y) > .5){
+		dist = getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y);
 		vel_msg.linear.x = dist * k_linear;
-		vel_msg.angular.z = k_angular * (atan2(t1.y - turtle1_s.y, t1.x - turtle1_s.x)
+		cout<<"X: "<<vel_msg.linear.x<<" Y: "<<vel_msg.linear.y<<" Z: "<<vel_msg.linear.z<<endl;
+		vel_msg.angular.z = k_angular * (atan2(dest.y - turtle1_s.y, dest.x - turtle1_s.x)
 		- turtle1_s.theta);
 
 		velocity_publisher.publish(vel_msg);
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
+	if (!kClient.call(reqk, respk))
+		ROS_ERROR_STREAM("Error: Failed to kill " << reqk.name.c_str() << "\n");
+	else
+		ROS_INFO_STREAM("Turtle captured!");
 }
+
+void navigate(Turtle t_turts[], ros::NodeHandle n){
+
+	ros::Publisher velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel",1000);
+	ros::Rate loop_rate(1);
+
+	double distance_t1, distance_t2;
+	geometry_msgs::Twist vel_msg;
+	Turtle t1, t2;
+	t1 = t_turts[0];
+	t2 = t_turts[1];
+
+	distance_t1 = getDistance(turtle1_s.x, turtle1_s.y, t1.pose.x, t1.pose.y);
+	distance_t2 = getDistance(turtle1_s.x, turtle1_s.y, t2.pose.x, t2.pose.y);
+	cout<< "D1: "<< distance_t1 <<"\tD2: "<< distance_t2 << endl;
+
+	if (distance_t1 > distance_t2){
+		move_to(t1.pose, t1.name, n);
+		loop_rate.sleep();
+		loop_rate.sleep();
+		move_to(t2.pose, t2.name, n);
+	}
+	else{
+		move_to(t2.pose, t2.name, n);
+		loop_rate.sleep();
+		loop_rate.sleep();
+		move_to(t1.pose, t1.name, n);
+	}
+}
+
+
 
 void poseCallback(const turtlesim::Pose::ConstPtr &pose_message){
 	turtle1_s.x = pose_message -> x;
@@ -156,8 +192,6 @@ int main(int argc, char **argv){
 		x_turts[i] = *(ros::topic::waitForMessage<turtlesim::Pose>(name, wait_duration));
 	}
 
-
-
 	/*
 			GETTING FURTHEST PAIR OF T-TURTLES
 	*/
@@ -168,7 +202,7 @@ int main(int argc, char **argv){
 
 		// src_turt+1 to compare each turtle
 		for (int dest_turt = src_turt+1; dest_turt < tCount; dest_turt++){
-			cout<<"\tInner loop:  Turtle--"<<dest_turt+1<<endl;	// Added this for personal visualization purposes-- Delete if you want
+			cout<<"\tInner loop:  Turtle--"<<dest_turt+1<<endl;	// Added this for personal 		move_to(t1,n);
 			float dest_x = t_turts[dest_turt].x;
 			float dest_y = t_turts[dest_turt].y;
 
@@ -189,15 +223,29 @@ int main(int argc, char **argv){
 	}
 
 	//This whole section display the pairs
-	cout << "The furthest pairs are " << turtle1+1 << " at " 
-	<< t_turts[turtle1].x << "," << t_turts[turtle1].y 
-	<< " and " 
+	cout << "The furthest pairs are " << turtle1+1 << " at "
+	<< t_turts[turtle1].x << "," << t_turts[turtle1].y
+	<< " and "
 	<< turtle2+1 << " at " << t_turts[turtle2].x << "," << t_turts[turtle2].y<<endl;
 
-	turtlesim::Pose goal_turts[2];
-	goal_turts[0] = t_turts[turtle1];
-	goal_turts[1] = t_turts[turtle2];
-	navigate(t_turts, n);
+	Turtle goal_turts[2];
+
+	tname.clear();
+	tname.str("");
+	tname << "T" << turtle1 + 1;
+	name = tname.str();
+
+	goal_turts[0].pose = t_turts[turtle1];
+	goal_turts[0].name = name;
+
+	tname.clear();
+	tname.str("");
+	tname << "T" << turtle2 + 1;
+	name = tname.str();
+
+	goal_turts[1].pose = t_turts[turtle2];
+	goal_turts[1].name = name;
+	navigate( goal_turts , n);
    return 0;
 }
 
