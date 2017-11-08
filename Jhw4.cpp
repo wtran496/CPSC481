@@ -16,6 +16,8 @@ struct Turtle {
 const int MAX_TTURTLES = 7;
 const int MAX_XTURTLES = 10;
 turtlesim::Pose turtle1_s;
+int tCount = 0;
+int xCount = 0;
 static ros::ServiceClient kClient;
 
 double getDistance(double x1, double y1, double x2, double y2){
@@ -49,11 +51,68 @@ bool turtleExist(const string turtlename) {
   return false;
 }
 
-void move_to(turtlesim::Pose dest, string t_name, ros::NodeHandle n){
+void avoidCollision(ros::NodeHandle n)
+{
+    geometry_msgs::Twist vel_msg;
+    ros::Rate loop_rate(100);
+    ROS_WARN("Avoiding collision");
+    // stop
+    vel_msg.linear.x = 0;
+    vel_msg.linear.y = 0;
+    vel_msg.linear.z = 0;
+
+    vel_msg.angular.x = 0;
+    vel_msg.angular.y = 0; //to be safe
+    vel_msg.angular.z = 0; //to be safe
+
+	ros::Publisher velocity_publisher;
+	velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel",1000);
+    velocity_publisher.publish(vel_msg);
+
+    // Drive backwards and turn to the left or right
+
+    vel_msg.linear.x = -1;
+    velocity_publisher.publish(vel_msg);
+    vel_msg.linear.x = 0.0;
+    sleep(2);
+
+    int direction = rand() % 2;
+    double rotate = 0;
+    vel_msg.linear.x = 0.0;
+    double current_angle = 0;
+    //choose a position to rotate
+    if(direction)
+    {
+        vel_msg.angular.z = -3.14/2;
+		rotate = vel_msg.angular.z;
+    }
+    else
+    {
+    	vel_msg.angular.z = -3.14/2;
+		rotate = vel_msg.angular.z;
+    }
+	double t0 = ros::Time::now().toSec();
+	double t1;
+	//rotate
+
+	do{
+		velocity_publisher.publish(vel_msg);
+		t1 = ros::Time::now().toSec();
+		current_angle = rotate * (t1 - t0);
+		ros::spinOnce();
+		loop_rate.sleep();
+		ROS_INFO("Rotation at %f", current_angle);
+	}while(current_angle < 1 && current_angle > -1);
+
+    vel_msg.angular.z = 0;
+    velocity_publisher.publish(vel_msg);
+}
+
+void move_to(turtlesim::Pose dest, turtlesim::Pose x_turts[], string t_name, ros::NodeHandle n){
 
 	// Tuner variables
 	float k_linear = 1;
-	float k_angular = 7;
+	float k_angular = 6;
 	double dist;
 	// To handle kill client/service requests
 	turtlesim::Kill::Request reqk;
@@ -74,11 +133,22 @@ void move_to(turtlesim::Pose dest, string t_name, ros::NodeHandle n){
 	while(getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y) > .5){
 		dist = getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y);
 		vel_msg.linear.x = dist * k_linear;
-		cout<<"X: "<<vel_msg.linear.x<<" Y: "<<vel_msg.linear.y<<" Z: "<<vel_msg.linear.z<<endl;
+		cout<<"Goal: "<<(atan2(dest.y - turtle1_s.y, dest.x - turtle1_s.x))<<endl;
+		cout<<"Current: "<< turtle1_s.theta<<endl;
 		vel_msg.angular.z = k_angular * (atan2(dest.y - turtle1_s.y, dest.x - turtle1_s.x)
 		- turtle1_s.theta);
 
 		velocity_publisher.publish(vel_msg);
+
+		// Checking for close X turts
+		for( int i = 0; i < xCount; i++){
+			double distX = getDistance(turtle1_s.x, turtle1_s.y, x_turts[i].x, x_turts[i].y);
+			//if our turtle is within the boundary of one of the X turtle then avoid
+			if (distX <= 1 && vel_msg.linear.y >= 0 && vel_msg.linear.x >= 0 && vel_msg.linear.y <= 11 && vel_msg.linear.x <= 11) {
+				avoidCollision(n);
+			}
+		}
+
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
@@ -88,7 +158,7 @@ void move_to(turtlesim::Pose dest, string t_name, ros::NodeHandle n){
 		ROS_INFO_STREAM("Turtle captured!");
 }
 
-void navigate(Turtle t_turts[], ros::NodeHandle n){
+void navigate(Turtle t_turts[], turtlesim::Pose x_turts[], ros::NodeHandle n){
 
 	ros::Publisher velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel",1000);
 	ros::Rate loop_rate(1);
@@ -104,16 +174,16 @@ void navigate(Turtle t_turts[], ros::NodeHandle n){
 	cout<< "D1: "<< distance_t1 <<"\tD2: "<< distance_t2 << endl;
 
 	if (distance_t1 > distance_t2){
-		move_to(t1.pose, t1.name, n);
+		move_to(t1.pose, x_turts, t1.name, n);
 		loop_rate.sleep();
 		loop_rate.sleep();
-		move_to(t2.pose, t2.name, n);
+		move_to(t2.pose, x_turts, t2.name, n);
 	}
 	else{
-		move_to(t2.pose, t2.name, n);
+		move_to(t2.pose, x_turts, t2.name, n);
 		loop_rate.sleep();
 		loop_rate.sleep();
-		move_to(t1.pose, t1.name, n);
+		move_to(t1.pose, x_turts, t1.name, n);
 	}
 }
 
@@ -128,8 +198,6 @@ void poseCallback(const turtlesim::Pose::ConstPtr &pose_message){
 int main(int argc, char **argv){
 	int turtle1 = 1; // Store Tturtle1
 	int turtle2 = 1; // Store Tturtle2
-	int tCount = 0;
-	int xCount = 0;
 	double max_distance = 0; // To check the furthest pair
 	double distance = 0; // To check pair distances
 
@@ -245,7 +313,7 @@ int main(int argc, char **argv){
 
 	goal_turts[1].pose = t_turts[turtle2];
 	goal_turts[1].name = name;
-	navigate( goal_turts , n);
+	navigate( goal_turts, x_turts , n);
    return 0;
 }
 
