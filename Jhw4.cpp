@@ -6,6 +6,8 @@
 #include <sstream>
 #include <string>
 #include <boost/algorithm/string.hpp>
+#include <cmath>
+
 
 using namespace::std;
 
@@ -51,7 +53,7 @@ bool turtleExist(const string turtlename) {
   return false;
 }
 
-void avoidCollision(ros::NodeHandle n)
+void avoidCollision(ros::NodeHandle n, int try_count)
 {
     geometry_msgs::Twist vel_msg;
     ros::Rate loop_rate(100);
@@ -74,23 +76,15 @@ void avoidCollision(ros::NodeHandle n)
     vel_msg.linear.x = -1;
     velocity_publisher.publish(vel_msg);
     vel_msg.linear.x = 0.0;
-    sleep(2);
+    sleep(1);
 
-    int direction = rand() % 2;
     double rotate = 0;
     vel_msg.linear.x = 0.0;
     double current_angle = 0;
     //choose a position to rotate
-    if(direction)
-    {
-        vel_msg.angular.z = -3.14/2;
-		rotate = vel_msg.angular.z;
-    }
-    else
-    {
-    	vel_msg.angular.z = -3.14/2;
-		rotate = vel_msg.angular.z;
-    }
+	vel_msg.angular.z = pow(-1, try_count)* ( (15) + (10 * (try_count)));
+	rotate = vel_msg.angular.z;
+	cout<<"ROTATE: "<< rotate<<endl;
 	double t0 = ros::Time::now().toSec();
 	double t1;
 	//rotate
@@ -112,7 +106,7 @@ void move_to(turtlesim::Pose dest, turtlesim::Pose x_turts[], string t_name, ros
 
 	// Tuner variables
 	float k_linear = 1;
-	float k_angular = 6;
+	float k_angular = 7;
 	double dist;
 	// To handle kill client/service requests
 	turtlesim::Kill::Request reqk;
@@ -130,6 +124,7 @@ void move_to(turtlesim::Pose dest, turtlesim::Pose x_turts[], string t_name, ros
 	vel_msg.angular.y = 0;
 
 	// Navigate to destination
+	int try_count = 0;
 	while(getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y) > .5){
 		dist = getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y);
 		vel_msg.linear.x = dist * k_linear;
@@ -145,7 +140,8 @@ void move_to(turtlesim::Pose dest, turtlesim::Pose x_turts[], string t_name, ros
 			double distX = getDistance(turtle1_s.x, turtle1_s.y, x_turts[i].x, x_turts[i].y);
 			//if our turtle is within the boundary of one of the X turtle then avoid
 			if (distX <= 1 && vel_msg.linear.y >= 0 && vel_msg.linear.x >= 0 && vel_msg.linear.y <= 11 && vel_msg.linear.x <= 11) {
-				avoidCollision(n);
+				avoidCollision(n, try_count);
+				try_count ++;
 			}
 		}
 
