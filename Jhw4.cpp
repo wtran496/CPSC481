@@ -20,6 +20,7 @@ const int MAX_XTURTLES = 10;
 turtlesim::Pose turtle1_s;
 int tCount = 0;
 int xCount = 0;
+double mVel = 0;
 static ros::ServiceClient kClient;
 
 double getDistance(double x1, double y1, double x2, double y2){
@@ -128,6 +129,9 @@ void move_to(turtlesim::Pose dest, turtlesim::Pose x_turts[], string t_name, ros
 	while(getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y) > .5){
 		dist = getDistance(turtle1_s.x, turtle1_s.y, dest.x, dest.y);
 		vel_msg.linear.x = dist * k_linear;
+		if (vel_msg.linear.x > mVel){
+			mVel = vel_msg.linear.x;
+		}
 		cout<<"Goal: "<<(atan2(dest.y - turtle1_s.y, dest.x - turtle1_s.x))<<endl;
 		cout<<"Current: "<< turtle1_s.theta<<endl;
 		vel_msg.angular.z = k_angular * (atan2(dest.y - turtle1_s.y, dest.x - turtle1_s.x)
@@ -139,7 +143,7 @@ void move_to(turtlesim::Pose dest, turtlesim::Pose x_turts[], string t_name, ros
 		for( int i = 0; i < xCount; i++){
 			double distX = getDistance(turtle1_s.x, turtle1_s.y, x_turts[i].x, x_turts[i].y);
 			//if our turtle is within the boundary of one of the X turtle then avoid
-			if (distX <= 1 && vel_msg.linear.y >= 0 && vel_msg.linear.x >= 0 && vel_msg.linear.y <= 11 && vel_msg.linear.x <= 11) {
+			if (!(distX >= .6 && turtle1_s.y >= .5 && turtle1_s.x >= .5 && turtle1_s.y <= 10.5 && turtle1_s.x <= 10.5)) {
 				avoidCollision(n, try_count);
 				try_count ++;
 			}
@@ -168,19 +172,28 @@ void navigate(Turtle t_turts[], turtlesim::Pose x_turts[], ros::NodeHandle n){
 	distance_t1 = getDistance(turtle1_s.x, turtle1_s.y, t1.pose.x, t1.pose.y);
 	distance_t2 = getDistance(turtle1_s.x, turtle1_s.y, t2.pose.x, t2.pose.y);
 	cout<< "D1: "<< distance_t1 <<"\tD2: "<< distance_t2 << endl;
-
+	double time1 = ros::Time::now().toSec();
+	double time2 = ros::Time::now().toSec();
+	double euclidDistance = getDistance(t_turts[0].pose.x,t_turts[0].pose.y,t_turts[1].pose.x,t_turts[1].pose.y);
+	
 	if (distance_t1 > distance_t2){
+		cout<<"T1: "<<t1.pose.x<<" T2: "<<t2.pose.x<<endl;
 		move_to(t1.pose, x_turts, t1.name, n);
 		loop_rate.sleep();
 		loop_rate.sleep();
 		move_to(t2.pose, x_turts, t2.name, n);
 	}
 	else{
+		cout<<"T1: "<<t1.pose.x<<" T2: "<<t2.pose.x<<endl;
 		move_to(t2.pose, x_turts, t2.name, n);
 		loop_rate.sleep();
 		loop_rate.sleep();
 		move_to(t1.pose, x_turts, t1.name, n);
 	}
+	time2 = ros::Time::now().toSec();
+	double time = time2 - time1;
+	double totalDistance = mVel * time;
+	ROS_INFO("T Turtles pair: %s and %s\n Euclidean Distance between T turtles: %f\n Velocity: %f\n Total Time: %f\n Total Distance: %f\n",t_turts[0].name.c_str(), t_turts[1].name.c_str(), euclidDistance, mVel, time, totalDistance);
 }
 
 
